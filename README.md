@@ -1,5 +1,5 @@
 # Library
 
-# TODO:
-## Session management
-## Autoinject dependencies
+## TODO:
+* Session management
+* Autoinject dependencies
