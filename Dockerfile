@@ -35,7 +35,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV CONTAINER=true
 
-CMD ["uvicorn", "librarian.app:main", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "librarian.app:app", "--host", "0.0.0.0", "--port", "80"]
 
 # ----------------------
 # Archiver
@@ -55,4 +55,12 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV CONTAINER=true
 
-CMD ["uvicorn", "archiver.app:main", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "archiver.app:app", "--host", "0.0.0.0", "--port", "80"]
+
+# ----------------------
+# Worker
+# ----------------------
+
+FROM archiver AS worker
+
+CMD ["celery", "-A", "src.archiver.worker.celery_app", "worker", "--loglevel=info", "--concurrency=4"]

@@ -18,5 +18,12 @@ down:
 logs:
 	docker compose logs -f
 
-create-db:
-	poetry run ./scripts/create_db.py
+upgrade:
+	poetry run alembic upgrade head
+
+downgrade:
+	poetry run alembic downgrade -1
+
+migrate:
+	@read -p "Enter migration message: " msg; \
+	poetry run alembic revision --autogenerate -m "$$msg"

@@ -9,6 +9,14 @@ services:
       - data:/var/lib/postgresql/data
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    env_file: .env
+    entrypoint: ["redis-server", "--requirepass", "$REDIS_PASSWORD"]
+    restart: unless-stopped
+
+
   proxy:
     image: mitmproxy/mitmproxy:latest
     container_name: proxy
@@ -30,9 +38,9 @@ services:
     build:
       context: .
       target: librarian
-      dockerfile: Dockerfile
-      args:
-        PACKAGE_NAME: librarian
+      dockerfile: Dockerfile.local
+    volumes:
+      - ./src/librarian:/app/src/librarian
     restart: unless-stopped
 
   archiver:
@@ -42,11 +50,23 @@ services:
     build:
       context: .
       target: archiver
-      dockerfile: Dockerfile
-      args:
-        PACKAGE_NAME: archiver
+      dockerfile: Dockerfile.local
     depends_on:
       - library
+    volumes:
+      - ./src/archiver:/app/src/archiver
+    restart: unless-stopped
+
+  worker:
+    image: worker:latest
+    container_name: worker
+    env_file: .env
+    build:
+      context: .
+      target: worker
+      dockerfile: Dockerfile.local
+    depends_on:
+      - redis
     restart: unless-stopped
 
 volumes:

@@ -8,6 +8,7 @@ class TraceType(str, Enum):
     REQUEST = "request"
     RESPONSE = "response"
 
+
 class BaseTraceModel(BaseModel):
     proxy_id: str
     start: datetime
@@ -17,36 +18,43 @@ class BaseTraceModel(BaseModel):
     body: Optional[str] = None
     raw: str
     type: TraceType
+    truncated: bool = False
+
 
 class RequestModel(BaseTraceModel):
     url: str
     method: str
     path: str
 
+
 class ResponseModel(BaseTraceModel):
     status_code: int
+
 
 class FlowModel(BaseModel):
     request_id: int
     response_id: int
+
 
 class RequestReadModel(RequestModel):
     id: int
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
 
 class ResponseReadModel(ResponseModel):
     id: int
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
 
 class FlowReadModel(FlowModel):
     id: int
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True

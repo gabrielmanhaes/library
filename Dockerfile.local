@@ -1,0 +1,40 @@
+
+####### Base #######
+
+FROM python:3.13-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV CONTAINER=true
+
+WORKDIR /app
+
+RUN pip install --upgrade pip && pip install poetry
+
+COPY . ./
+
+RUN poetry install
+
+# ----------------------
+# Librarian
+# ----------------------
+
+FROM base AS librarian
+
+CMD ["poetry", "run", "librarian"]
+
+# ----------------------
+# Archiver
+# ----------------------
+
+FROM base AS archiver
+
+CMD ["poetry", "run", "archiver"]
+
+# ----------------------
+# Worker
+# ----------------------
+
+FROM archiver AS worker
+
+CMD ["poetry", "run", "celery", "-A", "src.archiver.worker.celery_app", "worker", "--loglevel=info", "--concurrency=4"]

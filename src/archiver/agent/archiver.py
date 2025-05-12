@@ -1,53 +1,51 @@
-from archiver.config import Config
-from archiver.schemas import BaseTraceModel, FlowModel, TraceType
+from archiver.config import logger
+from archiver.schemas import RequestModel, ResponseModel, FlowModel, TraceType
 from archiver.repositories import TraceRepository, FlowRepository
-
+from archiver.crypto import encrypt
 
 
 class Archiver:
-    def __init__(self, trace_repository: TraceRepository, flow_repository: FlowRepository):
+    def __init__(
+        self,
+        trace_repository: TraceRepository,
+        flow_repository: FlowRepository,
+        janitor: "Janitor",
+    ):
         self.trace_repository = trace_repository
         self.flow_repository = flow_repository
+        self.janitor = janitor
 
-    def _field_truncate(value: str, max_length: int) -> tuple[str, bool]:
-        if value is None:
-            return value, False
-        if len(value) > max_length:
-            return value[:max_length], True
-        return value, False
+    def encrypt(
+        self, data: RequestModel | ResponseModel
+    ) -> RequestModel | ResponseModel:
+        encrypted_data = data
+        if isinstance(encrypted_data, RequestModel):
+            encrypted_data.url = encrypt(encrypted_data.url)
+            encrypted_data.path = encrypt(encrypted_data.path)
 
-    def _truncate(self, data: BaseTraceModel) -> BaseTraceModel:
-            truncated = False
-            data['url'], was = self._field_truncate(data.get('url', ''), Config.MAX_URL_LENGTH)
-            truncated |= was
+        encrypted_data.raw = encrypt(encrypted_data.raw)
+        encrypted_data.headers = encrypt(encrypted_data.headers)
 
-            data['method'], was = self._field_truncate(data.get('method', ''), Config.MAX_METHOD_LENGTH)
-            truncated |= was
+        if encrypted_data.body:
+            encrypted_data.body = encrypt(encrypted_data.body)
 
-            data['path'], was = self._field_truncate(data.get('path', ''), Config.MAX_PATH_LENGTH)
-            truncated |= was
+        return encrypted_data
 
-            data['raw'], was = self._field_truncate(data.get('raw', ''), Config.MAX_RAW_LENGTH)
-            truncated |= was
-
-            data['headers'], was = self._field_truncate(data.get('headers', ''), Config.MAX_HEADERS_LENGTH)
-            truncated |= was
-
-            data['body'], was = self._field_truncate(data.get('body', ''), Config.MAX_BODY_LENGTH)
-            truncated |= was
-
-            data['truncated'] = truncated
-            return data
-                
-
-    def store(self, data: BaseTraceModel) -> None:
-        truncated_data = self._truncate(data)
-        trace = self.trace_repository.create_trace(truncated_data)
-        if trace.type == TraceType.RESPONSE:
-            if request := self.trace_repository.get_request_by_proxy_id(trace.proxy_id):
-                self.flow_repository.create_flow(
-                    FlowModel(
-                        request_id=request.id,
-                        response_id=trace.id,
+    def store(self, data: RequestModel | ResponseModel) -> None:
+        clean_data = self.janitor.clean(data)
+        if clean_data is None:
+            logger.debug(f"Request {data.proxy_id} dropped by janitor.")
+            return
+        else:
+            encrypted_data = self.encrypt(clean_data)
+            trace = self.trace_repository.create_trace(encrypted_data)
+            if trace.type == TraceType.RESPONSE:
+                if request := self.trace_repository.get_request_by_proxy_id(
+                    trace.proxy_id
+                ):
+                    self.flow_repository.create_flow(
+                        FlowModel(
+                            request_id=request.id,
+                            response_id=trace.id,
+                        )
                     )
-                )
