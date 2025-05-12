@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
 
   librarian:
-    image: ghcr.io/gabrielmanhaes/librarian:latest
+    image: librarian:latest
     container_name: librarian
     env_file: .env
     build:
@@ -36,7 +36,7 @@ services:
     restart: unless-stopped
 
   archiver:
-    image: ghcr.io/gabrielmanhaes/archiver:latest
+    image: archiver:latest
     container_name: archiver
     env_file: .env
     build:
