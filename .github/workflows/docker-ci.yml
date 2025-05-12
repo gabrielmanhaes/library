@@ -32,7 +32,7 @@ jobs:
           build-args: |
             PACKAGE_NAME=librarian
           target: librarian
-          tags: libraryai/librarian:$(date +%s)
+          tags: libraryai/librarian:latest
 
       -
         name: Build and push Archiver
@@ -43,4 +43,4 @@ jobs:
           build-args: |
             PACKAGE_NAME=archiver
           target: archiver
-          tags: libraryai/archiver:$(date +%s)
+          tags: libraryai/archiver:latest
