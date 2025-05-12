@@ -41,12 +41,6 @@ jobs:
           target: archiver
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-name: ${{ env.REGISTRY }}/gabrielmanhaes/archiver
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
 
   build-and-push-librarian:
     runs-on: ubuntu-latest
@@ -81,10 +75,4 @@ jobs:
           target: librarian
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-name: ${{ env.REGISTRY }}/gabrielmanhaes/librarian
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
       
