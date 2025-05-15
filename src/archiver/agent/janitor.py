@@ -2,92 +2,92 @@ import json
 from urllib.parse import urlparse
 from archiver.agent import Blocker
 from archiver.config import Config
-from archiver.crypto import decrypt, encrypt
-from archiver.repositories import TraceRepository
-from archiver.schemas import RequestModel, ResponseModel
+from archiver.repositories import MessageRepository
+from archiver.schemas import RequestModel, ResponseModel, MessageModel
 
 
 class Janitor:
-    def __init__(self, trace_repository: TraceRepository, blocker: Blocker):
-        self.trace_repository = trace_repository
+    def __init__(
+        self,
+        message_repository: MessageRepository,
+        blocker: Blocker,
+    ):
+        self.message_repository = message_repository
         self.blocker = blocker
 
-    def _extract_domain(self, url: str) -> str:
-        try:
-            parsed = urlparse(url)
-            return parsed.netloc.lower()
-        except Exception:
-            return ""
+    def _drop(self, data: MessageModel) -> MessageModel:
 
-    def _drop(
-        self, data: RequestModel | ResponseModel
-    ) -> RequestModel | ResponseModel | None:
         if isinstance(data, RequestModel):
-            domain = self._extract_domain(data.url)
-            should_drop_trace = self.blocker.should_drop_trace(domain)
-        else:
-            should_drop_trace = (
-                self.trace_repository.get_request_by_proxy_id(data.proxy_id) is None
-            )
-
-        if should_drop_trace:
-            return None
+            data.is_junk = self.blocker.is_junk(data.host)
 
         headers = json.loads(data.headers)
-        for header in headers.keys():
-            should_drop_header = self.blocker.should_drop_header(header)
-            if should_drop_header:
-                headers.pop(header)
+        trailers = json.loads(data.trailers)
 
-        data.headers = json.dumps(headers)
+        clean_headers = headers.copy()
+        clean_trailers = trailers.copy()
+
+        for header in headers.keys():
+            should_drop = self.blocker.should_drop_header(header)
+            if should_drop:
+                clean_headers.pop(header)
+
+        for trailer in trailers.keys():
+            should_drop = self.blocker.should_drop_trailer(trailer)
+            if should_drop:
+                clean_trailers.pop(trailer)
+
+        data.headers = json.dumps(clean_headers)
+        data.trailers = json.dumps(clean_trailers)
 
         return data
 
     def _field_truncate(self, value: str, max_length: int) -> tuple[str, bool]:
-        if value is None or value == "":
+        if not value:
             return value, False
         if len(value) > max_length:
             return value[:max_length], True
         return value, False
 
-    def _truncate(
-        self, data: RequestModel | ResponseModel
-    ) -> RequestModel | ResponseModel:
-
+    def _truncate(self, data: MessageModel) -> MessageModel:
         truncated = False
 
+        def apply(field_name: str, max_length: int):
+            nonlocal truncated
+            value = getattr(data, field_name)
+            new_value, was_truncated = self._field_truncate(value, max_length)
+            setattr(data, field_name, new_value)
+            truncated |= was_truncated
+
         if isinstance(data, RequestModel):
-            data.url, was = self._field_truncate(data.url, Config.MAX_URL_LENGTH)
-            truncated |= was
+            apply("host", Config.MAX_URL_LENGTH)
+            apply("path", Config.MAX_PATH_LENGTH)
+            apply("method", Config.MAX_METHOD_LENGTH)
 
-            data.method, was = self._field_truncate(
-                data.method, Config.MAX_METHOD_LENGTH
-            )
-            truncated |= was
-
-            data.path, was = self._field_truncate(data.path, Config.MAX_PATH_LENGTH)
-            truncated |= was
-
-        data.raw, was = self._field_truncate(data.raw, Config.MAX_RAW_LENGTH)
-        truncated |= was
-
-        data.headers, was = self._field_truncate(
-            data.headers, Config.MAX_HEADERS_LENGTH
-        )
-        truncated |= was
-
-        if data.body:
-            data.body, was = self._field_truncate(data.body, Config.MAX_BODY_LENGTH)
-            truncated |= was
+        apply("raw_content", Config.MAX_RAW_CONTENT_LENGTH)
+        apply("headers", Config.MAX_HEADERS_LENGTH)
+        apply("trailers", Config.MAX_TRAILERS_LENGTH)
 
         data.truncated = truncated
         return data
 
-    def clean(
-        self, data: RequestModel | ResponseModel
-    ) -> RequestModel | ResponseModel | None:
-        clean_data = self._drop(data)
-        if clean_data is None:
-            return None
-        clean_data = self._truncate(clean_data)
-        return clean_data
+    def _safe(self, data: MessageModel) -> MessageModel:
+        fields = list(MessageModel.model_fields.keys())
+
+        if isinstance(data, RequestModel):
+            fields += list(RequestModel.model_fields.keys())
+        elif isinstance(data, ResponseModel):
+            fields += list(ResponseModel.model_fields.keys())
+
+        for field in fields:
+            value = getattr(data, field)
+            if isinstance(value, bytes):
+                value = value.decode("utf-8", errors="replace")
+                setattr(data, field, value)
+
+        return data
+
+    def clean(self, data: MessageModel) -> MessageModel:
+        safe_data = self._safe(data)
+        clean_data = self._drop(safe_data)
+        truncated_data = self._truncate(clean_data)
+        return truncated_data

@@ -1,4 +1,10 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    env_file: .env
+    restart: unless-stopped
+
   library:
     image: postgres:latest
     container_name: library
@@ -43,6 +49,7 @@ services:
       - ./src/librarian:/app/src/librarian
     restart: unless-stopped
 
+
   archiver:
     image: archiver:latest
     container_name: archiver
@@ -57,17 +64,45 @@ services:
       - ./src/archiver:/app/src/archiver
     restart: unless-stopped
 
-  worker:
+  hermes:
     image: worker:latest
-    container_name: worker
+    container_name: hermes
+    command: ["poetry", "run", "celery", "-A", "src.librarian.worker.app", "worker", "--loglevel=info", "--concurrency=4", "-Q", "hermes"]
     env_file: .env
     build:
       context: .
-      target: worker
+      target: librarian
       dockerfile: Dockerfile.local
     depends_on:
       - redis
     restart: unless-stopped
+
+  merlin:
+    image: worker:latest
+    container_name: merlin
+    command: ["poetry", "run", "celery", "-A", "src.archiver.worker.app", "worker", "--loglevel=info", "--concurrency=4", "-Q", "merlin"]
+    env_file: .env
+    build:
+      context: .
+      target: base
+      dockerfile: Dockerfile.local
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  chronos:
+    image: worker:latest
+    container_name: chronos
+    command: ["poetry", "run", "celery", "-A", "src.scheduler.app", "beat", "--loglevel=info"]
+    env_file: .env
+    build:
+      context: .
+      target: base
+      dockerfile: Dockerfile.local
+    depends_on:
+      - redis
+    restart: unless-stopped
+
 
 volumes:
   data:

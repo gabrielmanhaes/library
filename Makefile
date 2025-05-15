@@ -15,6 +15,9 @@ stop:
 down:
 	docker compose down
 
+prune:
+	docker image prune -f
+
 logs:
 	docker compose logs -f
 

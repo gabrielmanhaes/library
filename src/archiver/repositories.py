@@ -1,38 +1,42 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from archiver.models import Trace, Flow
-from archiver.schemas import RequestModel, ResponseModel, FlowModel, TraceType
-from typing import Sequence
+from archiver.models import Message, Flow
+from archiver.schemas import MessageModel, FlowModel
+from typing import Type, Sequence
 
 
-class TraceRepository:
+class MessageRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def create_trace(self, trace_data: RequestModel | ResponseModel) -> Trace:
-        print(trace_data.model_dump())
-        trace = Trace(**trace_data.model_dump())
-        self.session.add(trace)
+    def create(self, type_: Type[Message], data: MessageModel) -> Message:
+        message = type_(**data.model_dump())
+        self.session.add(message)
         self.session.commit()
-        self.session.refresh(trace)
-        return trace
+        self.session.refresh(message)
+        return message
 
-    def get_request_by_proxy_id(self, proxy_id: str) -> Trace | None:
-        result = self.session.execute(
-            select(Trace).where(
-                Trace.proxy_id == proxy_id, Trace.type == TraceType.REQUEST
-            )
-        )
+    def get_message_by_external_id(
+        self, type_: Type[Message], external_id: str
+    ) -> Message | None:
+        stmt = select(type_).where(type_.external_id == external_id)
+        result = self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    def get_trace_by_id(self, trace_id: int) -> Trace | None:
-        result = self.session.execute(select(Trace).where(Trace.id == trace_id))
+    def get_message_by_id(
+        self, type_: Type[Message], message_id: int
+    ) -> Message | None:
+        stmt = select(type_).where(type_.id == message_id)
+        result = self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    def list_traces(self, limit: int = 100, offset: int = 0) -> Sequence[Trace]:
-        result = self.session.execute(
-            select(Trace).order_by(Trace.created_at.desc()).offset(offset).limit(limit)
+    def list(
+        self, type_: Type[Message], limit: int = 100, offset: int = 0
+    ) -> Sequence[Message]:
+        stmt = (
+            select(type_).order_by(type_.created_at.desc()).offset(offset).limit(limit)
         )
+        result = self.session.execute(stmt)
         return result.scalars().all()
 
 

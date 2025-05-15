@@ -1,13 +1,10 @@
-from openai import OpenAI
+from librarian.schemas import GetFlowResponse
+from librarian.client import OllamaClient
+
 
 class Librarian:
-    def __init__(self, api_key, model):
-        self.client = OpenAI(api_key=api_key)
-        self.model = model
+    def __init__(self, ollama_client: OllamaClient):
+        self.ollama_client = ollama_client
 
-    def feed(self, input):
-        response = self.client.responses.create(
-            model=self.model,
-            input=input,
-        )
-        return response
+    def dispatch(self, flow: GetFlowResponse):
+        self.ollama_client.dispatch(flow)

@@ -1,5 +1,5 @@
 # Library
 
-## TODO:
-* Session management
-* Autoinject dependencies
+### TODO
+* Structured response from Ollama
+* Ingested that data into the db

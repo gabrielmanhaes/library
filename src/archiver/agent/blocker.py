@@ -1,4 +1,3 @@
-import fnmatch
 from archiver.config import Config
 
 
@@ -6,24 +5,24 @@ class Blocker:
     def __init__(self):
         self.blocklist = Config.BLOCKLIST
         self.headers = [
-            "User-Agent",
-            "Cookie",
-            "Accept",
-            "Accept-Encoding",
-            "Accept-Language",
-            "Cache-Control",
-            "Connection",
-            "Pragma",
-            "Proxy-Connection",
-            "Upgrade-Insecure-Requests",
+            "authorization",
+            "cookie",
+            "accept",
+            "accept-encoding",
+            "accept-language",
+            "cache-control",
+            "connection",
+            "pragma",
+            "proxy-connection",
+            "upgrade-insecure-requests",
         ]
+        self.trailers = []
 
-    def is_blocked(self, domain: str) -> bool:
-        domain = domain.lower()
-        return any(fnmatch.fnmatch(domain, entry) for entry in self.blocklist)
-
-    def should_drop_trace(self, domain: str) -> bool:
-        return self.is_blocked(domain)
+    def is_junk(self, domain: str) -> bool:
+        return domain in self.blocklist
 
     def should_drop_header(self, header: str) -> bool:
-        return header in self.headers
+        return header.lower() in self.headers
+
+    def should_drop_trailer(self, trailer: str) -> bool:
+        return trailer.lower() in self.trailers

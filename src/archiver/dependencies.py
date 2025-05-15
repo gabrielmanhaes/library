@@ -1,14 +1,17 @@
 from typing import Annotated
 from fastapi import Depends
+from archiver.client import LibrarianClient
 from archiver.agent import Archiver, Janitor, Blocker
 from archiver.config import Config
-from archiver.repositories import TraceRepository, FlowRepository
+from archiver.repositories import MessageRepository, FlowRepository
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import Engine, create_engine
 
+engine = create_engine(Config.DATABASE_URL, pool_pre_ping=True)
+
 
 def get_engine() -> Engine:
-    return create_engine(Config.DATABASE_URL)
+    return engine
 
 
 APIEngine = Annotated[Engine, Depends(get_engine)]
@@ -28,15 +31,22 @@ def get_session(
 APISession = Annotated[Session, Depends(get_session)]
 
 
-def get_trace_repository(session: APISession) -> TraceRepository:
-    return TraceRepository(session)
+def get_librarian_client() -> LibrarianClient:
+    return LibrarianClient()
+
+
+APILibrarianClient = Annotated[LibrarianClient, Depends(get_librarian_client)]
+
+
+def get_message_repository(session: APISession) -> MessageRepository:
+    return MessageRepository(session)
 
 
 def get_flow_repository(session: APISession) -> FlowRepository:
     return FlowRepository(session)
 
 
-APITraceRepository = Annotated[TraceRepository, Depends(get_trace_repository)]
+APIMessageRepository = Annotated[MessageRepository, Depends(get_message_repository)]
 APIFlowRepository = Annotated[FlowRepository, Depends(get_flow_repository)]
 
 
@@ -50,11 +60,11 @@ APIBlocker = Annotated[Blocker, Depends(get_blocker)]
 
 
 def get_janitor(
-    trace_repository: APITraceRepository,
+    message_repository: APIMessageRepository,
     blocker: APIBlocker,
 ):
     return Janitor(
-        trace_repository=trace_repository,
+        message_repository=message_repository,
         blocker=blocker,
     )
 
@@ -63,12 +73,14 @@ APIJanitor = Annotated[Janitor, Depends(get_janitor)]
 
 
 def get_archiver(
-    trace_repository: APITraceRepository,
+    librarian_client: APILibrarianClient,
+    message_repository: APIMessageRepository,
     flow_repository: APIFlowRepository,
     janitor: APIJanitor,
 ) -> Archiver:
     return Archiver(
-        trace_repository=trace_repository,
+        librarian_client=librarian_client,
+        message_repository=message_repository,
         flow_repository=flow_repository,
         janitor=janitor,
     )

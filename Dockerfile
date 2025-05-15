@@ -61,6 +61,8 @@ CMD ["uvicorn", "archiver.app:app", "--host", "0.0.0.0", "--port", "80"]
 # Worker
 # ----------------------
 
-FROM archiver AS worker
+# TODO - Uncomment and build the worker properly
 
-CMD ["celery", "-A", "src.archiver.worker.celery_app", "worker", "--loglevel=info", "--concurrency=4"]
+# FROM archiver AS worker
+
+# CMD ["celery", "-A", "src.archiver.worker.app", "worker", "--loglevel=info", "--concurrency=4"]

@@ -18,7 +18,6 @@ class Config:
     PORT = int(os.getenv("ARCHIVER_PORT", "8001"))
     CONTAINER = os.getenv("CONTAINER", "false")
     DEBUG = os.getenv("DEBUG", "false")
-    AES_KEY = os.getenv("AES_KEY", "aes_key")
     BLOCKER_URL = os.getenv(
         "BLOCKER_URL",
         "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/pro-onlydomains.txt",
@@ -41,5 +40,6 @@ class Config:
     MAX_URL_LENGTH = 2048
     MAX_PATH_LENGTH = 2048
     MAX_BODY_LENGTH = 1024 * 1024 * 10  # 10 MB
-    MAX_RAW_LENGTH = 1024 * 1024 * 10  # 10 MB
+    MAX_RAW_CONTENT_LENGTH = 1024 * 1024 * 10  # 10 MB
     MAX_HEADERS_LENGTH = 1024 * 1024 * 10  # 10 MB
+    MAX_TRAILERS_LENGTH = 1024 * 1024 * 10  # 10 MB

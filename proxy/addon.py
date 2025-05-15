@@ -4,15 +4,23 @@ import httpx
 from mitmproxy import http
 
 
-ARCHIVER_URL = os.getenv("ARCHIVER_URL", "http://archiver/api/collect")
+ARCHIVER_URL = os.getenv("ARCHIVER_URL", "http://archiver/api/collect/")
 
 
-def headers_to_json(headers: http.Headers) -> str:
-    as_dict = {k.decode("utf-8"): v.decode("utf-8") for k, v in headers.fields}
-    return json.dumps(as_dict)
+def to_safe_json(data: http.Headers) -> str:
+    if data:
+        as_dict = {
+            to_safe_text(k.decode("utf-8")): to_safe_text(v.decode("utf-8"))
+            for k, v in data.fields
+        }
+        return json.dumps(as_dict)
+    else:
+        return "{}"
 
 
-def safe_text(data: bytes | str | None, placeholder: str = "[binary omitted]") -> str:
+def to_safe_text(
+    data: bytes | str | None, placeholder: str = "[binary omitted]"
+) -> str:
     if data is None:
         return ""
     if isinstance(data, str):
@@ -23,33 +31,29 @@ def safe_text(data: bytes | str | None, placeholder: str = "[binary omitted]") -
         return placeholder
 
 
-def request(flow: http.HTTPFlow) -> None:
-    data = {
-        "proxy_id": flow.id,
-        "start": flow.request.timestamp_start,
-        "end": flow.request.timestamp_end,
-        "headers": headers_to_json(flow.request.headers),
-        "url": flow.request.url,
-        "method": flow.request.method,
-        "path": flow.request.path,
-        "size": len(flow.request.content),
-        "body": safe_text(flow.request.text),
-        "raw": safe_text(flow.request.get_content().decode(errors="replace")),
-        "type": "request",
-    }
-    httpx.post(ARCHIVER_URL, json=data)
-
-
 def response(flow: http.HTTPFlow) -> None:
     data = {
-        "proxy_id": flow.id,
-        "start": flow.response.timestamp_start,
-        "end": flow.response.timestamp_end,
-        "status_code": flow.response.status_code,
-        "headers": headers_to_json(flow.response.headers),
-        "size": len(flow.response.content),
-        "body": safe_text(flow.response.text),
-        "raw": safe_text(flow.response.get_content().decode(errors="replace")),
-        "type": "response",
+        "flow_id": to_safe_text(flow.id),
+        "request": {
+            "timestamp_start": int(flow.request.timestamp_start),
+            "timestamp_end": int(flow.request.timestamp_end),
+            "port": int(flow.request.port),
+            "scheme": to_safe_text(flow.request.scheme),
+            "host": to_safe_text(flow.request.host),
+            "path": to_safe_text(flow.request.path),
+            "method": to_safe_text(flow.request.method),
+            "headers": to_safe_json(flow.request.headers),
+            "trailers": to_safe_json(flow.request.trailers),
+            "raw_content": to_safe_text(flow.request.raw_content),
+        },
+        "response": {
+            "timestamp_start": int(flow.response.timestamp_start),
+            "timestamp_end": int(flow.response.timestamp_end),
+            "status_code": int(flow.response.status_code),
+            "reason": to_safe_text(flow.response.reason),
+            "headers": to_safe_json(flow.response.headers),
+            "trailers": to_safe_json(flow.response.trailers),
+            "raw_content": to_safe_text(flow.response.raw_content),
+        },
     }
     httpx.post(ARCHIVER_URL, json=data)

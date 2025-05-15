@@ -1,34 +1,61 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
+import uuid
+from pydantic import BaseModel
+from typing import Optional
 from datetime import datetime
-from enum import Enum
 
 
-class TraceType(str, Enum):
-    REQUEST = "request"
-    RESPONSE = "response"
-
-
-class BaseTraceModel(BaseModel):
-    proxy_id: str
+class MessageModel(BaseModel):
+    external_id: uuid.UUID
     start: datetime
-    end: Optional[datetime] = None
+    end: datetime
     headers: str
-    size: int
-    body: Optional[str] = None
-    raw: str
-    type: TraceType
+    trailers: str
+    raw_content: str
+    size: Optional[int] = None
     truncated: bool = False
 
 
-class RequestModel(BaseTraceModel):
-    url: str
-    method: str
+class RequestModel(MessageModel):
+    scheme: str
+    host: str
+    port: int
     path: str
+    method: str
+    is_junk: bool = False
 
 
-class ResponseModel(BaseTraceModel):
+class ResponseModel(MessageModel):
     status_code: int
+    reason: str
+
+
+class RequestData(BaseModel):
+    timestamp_start: datetime
+    timestamp_end: datetime
+    scheme: str
+    host: str
+    port: int
+    path: str
+    method: str
+    headers: str
+    trailers: str
+    raw_content: str
+
+
+class ResponseData(BaseModel):
+    timestamp_start: datetime
+    timestamp_end: datetime
+    status_code: int
+    reason: str
+    headers: str
+    trailers: str
+    raw_content: str
+
+
+class TransactionData(BaseModel):
+    flow_id: uuid.UUID
+    request: RequestData
+    response: ResponseData
 
 
 class FlowModel(BaseModel):
@@ -40,21 +67,23 @@ class RequestReadModel(RequestModel):
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class ResponseReadModel(ResponseModel):
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class FlowReadModel(FlowModel):
     id: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
+
+
+class GetFlowResponse(BaseModel):
+    request: RequestReadModel
+    response: ResponseReadModel

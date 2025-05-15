@@ -30,11 +30,3 @@ CMD ["poetry", "run", "librarian"]
 FROM base AS archiver
 
 CMD ["poetry", "run", "archiver"]
-
-# ----------------------
-# Worker
-# ----------------------
-
-FROM archiver AS worker
-
-CMD ["poetry", "run", "celery", "-A", "src.archiver.worker.celery_app", "worker", "--loglevel=info", "--concurrency=4"]

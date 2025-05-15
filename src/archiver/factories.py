@@ -1,23 +1,26 @@
+from archiver.repositories import MessageRepository, FlowRepository
 from archiver.agent import Archiver, Janitor, Blocker
-from archiver.repositories import TraceRepository, FlowRepository
-from archiver.config import Config
+from archiver.client import LibrarianClient
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
+from archiver.config import Config
 
 
 def get_archiver_instance() -> Archiver:
-    engine = create_engine(Config.DATABASE_URL)
+    engine = create_engine(Config.DATABASE_URL, pool_pre_ping=True)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
 
     try:
-        trace_repo = TraceRepository(db)
-        flow_repo = FlowRepository(db)
+        librarian_client = LibrarianClient()
+        message_repository = MessageRepository(db)
+        flow_repository = FlowRepository(db)
         blocker = Blocker()
-        janitor = Janitor(trace_repository=trace_repo, blocker=blocker)
+        janitor = Janitor(message_repository=message_repository, blocker=blocker)
         return Archiver(
-            trace_repository=trace_repo,
-            flow_repository=flow_repo,
+            librarian_client=librarian_client,
+            message_repository=message_repository,
+            flow_repository=flow_repository,
             janitor=janitor,
         )
     except Exception:
