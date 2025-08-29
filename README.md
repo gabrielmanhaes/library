@@ -2,4 +2,4 @@
 
 ### TODO
 * Structured response from Ollama
-* Ingested that data into the db
+* Ingest that data into the db
